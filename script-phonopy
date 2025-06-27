@@ -1,0 +1,52 @@
+#!/bin/bash
+# Give your job a name, so you can recognize it in the queue overview
+#SBATCH --job-name=example
+# Define, how many nodes you need.
+#SBATCH --nodes=1
+# You can further define the number of tasks/processors. The following is
+#enough if you wish to run 1 task at 24 (out of 48 available) cores.
+#For more complicated jobs, use also –cpus-per-task flag.
+#SBATCH --ntasks-per-node=48
+# Define the partition on which the job shall run. Available:
+#na,si,mg,cl,s,p (AMD nodes) or spoodie01,spoodie02,spoodie03 (INTEL nodes).
+#SBATCH --partition na,si,mg,cl,s,p
+#SBATCH --time=400:00:00
+# You may not place any commands before the last SBATCH directive
+source ~/.bashrc
+
+module unload vasp-intel-dev
+module load vasp-gnu_aocl-dev openmp_support
+module list
+export OMP_NUM_THREADS=1
+export VASP=/fs/home/sylwia/src/vasp-tmp1-gmatrix/IPA-AMD-OMP/std/vasp
+
+
+#python prepare_files.py
+conda activate ipa
+#for d in */ ; do
+for d in  HfN LiMoN2  MgB2 MoH Nb Nb3Zn NbB2 NbC Ta TaB2 Tc Ti Ti2H Ti2W Ti3Te TiV TiV2 V Zr ZrN ZrTc2; do  #LiVRu2 TaNb Be4NbRh
+cd $d
+rm -r q*old
+#~/src/miniconda3/envs/ipa/bin/python ../run_phonopy.py
+dir=`ls -d q* | tail -n 1`
+cd $dir
+#
+mkdir PERFECT
+cp SPOSCAR PERFECT/POSCAR
+cp disp-001/{INCAR,KPOINTS} PERFECT/
+cp ../POTCAR PERFECT/
+cd PERFECT
+mpirun -np 24 $VASP
+cd ..
+#
+dim=`grep dim phonopy_disp.yaml`; dim=${dim//dim: \"};dim=${dim//\"}
+dirs=`ls -d disp-*`
+fft=`grep '   NGX =' ../relax/OUTCAR` ; fft=${fft//NGX =}; fft=${fft//NGY =}; fft=${fft//NGZ =}
+#mv POSCARR POSCAR
+com="phelel --dim "$dim"  --create-derivatives PERFECT "$dirs"  --fft-mesh "$fft
+echo $d $dir
+echo $com
+###end
+ cd ../..
+done
+
