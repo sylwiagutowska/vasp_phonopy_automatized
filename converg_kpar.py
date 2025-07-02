@@ -30,6 +30,7 @@ def kpar_convergence(incar, kpoints,  npr):
         if kpar>nkpts: break
         if npr%kpar!=0: continue
         incar["KPAR"] = kpar
+        incar["ISTART"]=0
         incar.write_file(dir+"/INCAR")
 
         print(f"Running with KPAR = {kpar}")
@@ -48,6 +49,7 @@ def kpar_convergence(incar, kpoints,  npr):
 
     print(f" Optimal KPAR = {best_kpar} with runtime = {best_time} sec")
     incar["KPAR"] = best_kpar
+    incar["ISTART"]=1
     incar.write_file("INCAR")
     clean_vasp_files(dir)
 
