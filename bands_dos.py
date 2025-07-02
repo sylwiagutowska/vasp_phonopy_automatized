@@ -4,6 +4,7 @@ from pymatgen.io.vasp.inputs import Incar, Kpoints, Poscar
 from pymatgen.io.vasp import Vasprun, BSVasprun
 from pymatgen.electronic_structure.plotter import BSDOSPlotter
 from pymatgen.symmetry.bandstructure import HighSymmKpath
+from pymatgen.electronic_structure.core import Spin,Orbital
 import matplotlib.pyplot as plt
 from common import *
 import xml.etree.ElementTree as ET
@@ -18,6 +19,7 @@ def write_incar_bands(incar,dir):
     incar_bands=incar.copy()
     incar_bands["LWAVE"]= False
     incar_bands["LCHARG"]= False
+    incar_bands["ICHARG"]=11
     incar_bands["ISMEAR"]= -5
     incar_bands.write_file(dir+'/INCAR')
 
@@ -25,6 +27,7 @@ def write_incar_dos(incar,dir):
     incar_dos=incar.copy()
     incar_dos["LWAVE"]= False
     incar_dos["LCHARG"]= False
+    incar_dos["ICHARG"]=11
     incar_dos["ISMEAR"]= -5
     incar_dos["NEDOS"]= 2000
     incar_dos["LORBIT"]= 11
@@ -88,7 +91,10 @@ def save_dos(dir='dos'):
   vasprun = Vasprun(dir+"/vasprun.xml")
   dos = vasprun.complete_dos  # Or vasprun.tdos for total DOS only
   energies = dos.energies - vasprun.efermi  # Align with Fermi level
-  total_dos = dos.densities["spin 1"]        
+  print(dos.densities.keys())
+  total_dos = dos.densities[Spin.up]        
+  if Spin.down in dos.densities:
+    total_dos += dos.densities[Spin.down]
   # Save energies and total DOS to file
   np.savetxt(dir+"/dos.dat", np.column_stack((energies, total_dos)), header="E-E_F (eV)    DOS (1/eV) integral", fmt="%.6f")
 
@@ -97,22 +103,21 @@ def save_pdos(dir='dos'):
   vasprun = Vasprun(dir+"/vasprun.xml", parse_projected_eigen=True)
   cdos = vasprun.complete_dos
   energies = cdos.energies - vasprun.efermi  # Shift energies to Fermi level
-  structure = cdos.structure
-  n_atoms = len(structure)
-  orbitals = ['s', 'p', 'd', 'f']  # Include f if needed
+  efermi_index=np.argsort(np.abs(energies))[0] #ene closest to EF
   # Initialize data: first column is energy
   data = [energies]
   headers = ["Energy"]
+  print("PDOS available for sites:", list(cdos.pdos.keys()))
   # Loop over all atoms and orbitals
-  for i, site in enumerate(structure):
-      site_dos = cdos.get_site_dos(site)
-      for orb in orbitals:
-          try:
-              dos = site_dos.get_orbital_dos(orb)
-              data.append(dos)
-              headers.append(f"Atom{i}_{orb}")
-          except KeyError:
-              continue  # Orbital not present
+  # Iteruj po atomach, dla których mamy PDOS
+  for site, spin_orb_dict in cdos.pdos.items():
+    print(f"Atom {site.specie} at {site.frac_coords}")
+
+    for spin in spin_orb_dict:
+        for orb, dos in spin_orb_dict[spin].items():
+            print(f"  Orbital {orb.name}, Spin: {spin.name},  DOS(EF): {dos[efermi_index]:.3f}")
+            data.append(dos)
+            headers.append(f"{site.specie}_{orb.name}") 
   # Transpose data to get one row per energy point
   data = np.array(data).T
   # Save to file
