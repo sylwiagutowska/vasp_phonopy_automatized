@@ -130,7 +130,7 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
       atoms=phonon._primitive._symbols
       primitive_matrix=structure.lattice.matrix 
       sc_len=len(force_constants)//len(atoms) 
-      force_constants2=np.abs(np.array([[np.matmul(np.linalg.inv(primitive_matrix),np.matmul(m,np.linalg.inv(primitive_matrix).transpose())) for m in i] for i in force_constants]))
+      force_constants2=np.abs(np.array([[np.matmul(np.linalg.inv(primitive_matrix),np.matmul(m, primitive_matrix )) for m in i] for i in force_constants]))
       primitive_to_supercell_map=[[m for m in range(i,i+sc_len)] for i in phonon._primitive._p2s_map]
       print( ' Map atoms from primitive to supercell',phonon._primitive._p2s_map,'reshaped to',primitive_to_supercell_map) 
       if_forces_reduced_enough=np.zeros((len(atoms),len(atoms),3))
