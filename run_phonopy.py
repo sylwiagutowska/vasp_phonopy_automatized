@@ -29,17 +29,7 @@ def parse_forces_from_vasprun(xml_file):
     final_forces_raw = force_arrays[-1]
     forces = []
     for v in final_forces_raw:
-        if strip_ns(v.tag) == 'v':
-
-
-
-
-
-
-
-
-
-          
+        if strip_ns(v.tag) == 'v': 
             forces.append([float(x) for x in v.text.strip().split()])
     return forces
 
@@ -51,12 +41,14 @@ def parse_set_of_forces(filenames):
 
 #@profile
 def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
-   for q in range(1,max_q):
+   print("######PHONON CALCULATIONS#####")
+   for q in range(1,max_q+1):
+      if q==1 and len(structure)==1: continue #phonons for 1 atom dont exist
       #directory
       dir='q'+str(q)
       print(dir)
       if len(glob.glob(dir+'/total_dos.dat'))!=0: 
-         print('total dos calculated; i continue with next q')
+         print('total dos already calculated; i continue with next q if required')
          olddos=np.loadtxt(dir+'/total_dos.dat',skiprows=1)[:,1]
          continue
       #os.system('mv '+dir+' '+dir+'_old')
@@ -85,6 +77,7 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
       incar_phonopy["KPAR"]=int(np.ceil(incar_phonopy["KPAR"]/q))
       if "MAGMOM" in incar and len(incar["MAGMOM"])!=0: incar_phonopy["MAGMOM"]= len(Structure.from_file('SPOSCAR').sites)*"0 "
       incar_phonopy.write_file(dir+"/INCAR")
+      print(" Files ready. I calculate perfect cell...")
       #perfect run
       dir_perfect=dir+'/PERFECT/'
       if len(glob.glob(dir_perfect))==0:
@@ -96,6 +89,7 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
 
       dirs=[dir+'/disp-'+str(i+1) for i in range(len(supercells))]
       for ni,i in enumerate(dirs):
+         print(' ',i,'is being calculated...')
          if len(glob.glob(i))==0:
             os.system('cp -r '+dir_perfect+' '+i)
             write_crystal_structure(i+'/POSCAR',supercells[ni])
@@ -108,9 +102,11 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
       phonon.set_forces(forces)
       phonon.produce_force_constants()
       phonon.symmetrize_force_constants(level=1) #level :    Application of translational and permulation symmetries is repeated by this number. Default is 1.
-      phonon.run_mesh([40, 40, 40],with_eigenvectors=True,is_mesh_symmetry=False) 
-      phonon.run_total_dos(freq_min=-2,freq_max=20,freq_pitch=0.05)
-      phonon.write_total_DOS(filename=dir+"/total_dos.dat")
+      print(" I calculate DOS now...")
+   #   phonon.run_mesh([40, 40, 40],with_eigenvectors=True,is_mesh_symmetry=False) 
+   #   phonon.run_total_dos(freq_min=-2.,freq_max=20.-0.005,freq_pitch=0.05)
+      phonon.auto_total_dos(mesh=40,is_mesh_symmetry=False,plot=False,write_dat=True,filename=dir+"/total_dos.dat")
+   #   phonon.write_total_DOS(filename=dir+"/total_dos.dat")
       print(' DOS  calculated')
       phonon.save(filename=dir+"/phonopy_params.yaml",settings={'force_constants': True})
       
@@ -141,7 +137,7 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
       for nato1,ato1 in enumerate(primitive_to_supercell_map):
         for nato2,ato2 in enumerate(primitive_to_supercell_map):
             print(atoms[nato1],atoms[nato2],':')
-            for ndire,dire in ['x','y','z']:
+            for ndire,dire in enumerate(['x','y','z']):
                maxf,minf=np.max(force_constants2[ato1[0],ato2,ndire,ndire]),np.min(force_constants2[ato1[0],ato2,ndire,ndire])
                print('  ',dire,':','max force constant: ',maxf,'min force constant:',minf)
                if maxf>minf*900: if_forces_reduced_enough[nato1,nato2,dire]=1
@@ -149,17 +145,24 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
               if ncell1!=0: break
               for ncell2,cell2 in enumerate(ato2):
                print(f'  {ncell1}:{ncell2}: \n',force_constants2[cell1][cell2])
-      if np.all(if_forces_reduced_enough):
+      if_converg=np.all(if_forces_reduced_enough)
+      if if_converg:
         print('Convergence with respect to supercell size achieved. Now I run band and DOS calculations')
+      if not if_converg and q==max_q:
+        print('Convergence with respect to supercell size NOT achieved. Now I run band and DOS calculations')
+      if np.all(if_forces_reduced_enough) or q==max_q:
         phonon.auto_band_structure(with_eigenvectors=True,write_yaml=True,plot=False)
         print('Band structure calculated')
         phonon.run_mesh([int(100)/sc_size for sc_size in qs],with_eigenvectors=True,is_mesh_symmetry=False) 
-        phonon.run_total_dos(freq_min=-2,freq_max=20,freq_pitch=0.01)
+        phonon.run_total_dos(freq_pitch=0.01)
         phonon.write_total_DOS(filename=dir+"/total_dos.dat")
         print('DOS  calculated')
         phonon.run_projected_dos(freq_pitch=0.01)
         plot=phonon.plot_band_structure_and_dos()
-        plot.savefig("band_and_dos.png", dpi=600, bbox_inches='tight')
+        tick_positions, tick_labels = plot.get_ticks()
+        tick_positions = [round(pos, 2) for pos in tick_positions]
+        plot.plot(ticks=[tick_positions, tick_labels])
+        plot.savefig("phonon_bands_and_dos.png", dpi=600, bbox_inches='tight')
         phonon.save(filename=dir+"/phonopy_params.yaml",settings={'force_constants': True})
         print('Data saved. PHONONS FINISHED')
         #other commands to deal with dos and bands
