@@ -125,13 +125,14 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
 
       #new method of termination: when forces constant drop by 3 orders of magnitude
       force_constants=phonon.get_force_constants()
+      print('dimension of force_constant matrix',force_constants.shape)
       #print('force constants:\n',force_constants)
       atoms=phonon._primitive._symbols
       primitive_matrix=structure.lattice.matrix 
       sc_len=len(force_constants)//len(atoms) 
       force_constants2=np.abs(np.array([[np.matmul(np.linalg.inv(primitive_matrix),np.matmul(m,np.linalg.inv(primitive_matrix).transpose())) for m in i] for i in force_constants]))
-      print( ' Map atoms from primitive to supercell',phonon._primitive._p2s_map) 
       primitive_to_supercell_map=[[m for m in range(i,i+sc_len)] for i in phonon._primitive._p2s_map]
+      print( ' Map atoms from primitive to supercell',phonon._primitive._p2s_map,'reshaped to',primitive_to_supercell_map) 
       if_forces_reduced_enough=np.zeros((len(atoms),len(atoms),3))
       print(' Force constants analysis')
       for nato1,ato1 in enumerate(primitive_to_supercell_map):
@@ -140,7 +141,7 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
             for ndire,dire in enumerate(['x','y','z']):
                maxf,minf=np.max(force_constants2[ato1[0],ato2,ndire,ndire]),np.min(force_constants2[ato1[0],ato2,ndire,ndire])
                print('  ',dire,':','max force constant: ',maxf,'min force constant:',minf)
-               if maxf>minf*900: if_forces_reduced_enough[nato1,nato2,dire]=1
+               if maxf>minf*900: if_forces_reduced_enough[nato1,nato2,ndire]=1
             for ncell1,cell1 in enumerate(ato1):
               if ncell1!=0: break
               for ncell2,cell2 in enumerate(ato2):
