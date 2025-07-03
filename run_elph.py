@@ -1,24 +1,10 @@
 import os
 import glob
 import numpy as np
-vasp_command='mpirun -np 24 /fs/home/sylwia/src/vasp-tmp1-gmatrix/IPA-AMD-OMP/std/vasp'
 import sys
-if len(sys.argv)>1: vasp_command=' '.join(sys.argv[1:])
-print('vasp command:', vasp_command)
+from common import *  
 
 
-
-
-def run_vasp(dir,npc):
-    vc=vasp_command #.replace('24',str(npc))
-    os.system('a=$(pwd); echo $a; cd '+dir+'; '+vc+';cd $a')
-    h=open(dir+'/OUTCAR')
-    tmp=h.readlines()
-    h.close()
-    for m in tmp:
-        if 'The electronic self-consistency was not achieved in the given' in m or 'EEEEEEE  RRRRRR   RRRRRR   OOOOOOO  RRRRRR' in m:
-         return 0 
-    return 1
 
 def read_fftmesh(dir='./'):
     h=open(dir+'/OUTCAR')
@@ -69,39 +55,42 @@ def allen_dynes_tc(mus):
  
 
 
+def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
+    print('################ELPH CALC#############')
+    fftmesh=read_fftmesh('relax')
+    print(fftmesh)
+    print(' Preparing kpoints and incar')
 
-fftmesh=read_fftmesh('relax')
-print(fftmesh)
-
-os.system('mkdir ELPH; cp ../ins/INCAR.elph ELPH/INCAR; cp relax/CONTCAR ELPH/POSCAR; cp POTCAR ELPH/; cp relax/KPOINTS ELPH/')
-os.system('grep ENCUT relax/INCAR >>ELPH/INCAR')
-os.system("sed -i '3s/.*/Gamma/' ELPH/KPOINTS") #ELPH gives error with Monkhorst grid mthod
-with open('ELPH/KPOINTS') as h:
-    tmp=h.readlines()
-    kp=[int(m) for m in tmp[3].split()]
-kpd=[str(2*m) for m in kp]
-h=open('ELPH/KPOINTS_DENSE','w')
-for i in tmp[:3]:
-    h.write(i)
-h.write(' '.join(kpd)+'\n0 0 0')
-h.close()
+    dir='ELPH'
+    os.system('mkdir '+dir)
+    os.system('cp POSCAR POTCAR '+dir)
+    kp=np.array(kpoints.kpts[0],dtype=int)
+    kp_dense=np.array([(int(m*2)) for m in (kp)])
+    kp.write_file(dir+"/KPOINTS")
+    kp_dense.write_file(dir+"/KPOINTS_DENSE") 
+    incar_elph=incar.copy()
+    incar_elph["ELPH_DRIVER"]='PH'
+    incar_elph["ELPH_MODE"]='ELIASHBERG_ISO'
+    incar_elph["ELPH_SELFEN_CARRIER_DEN"]=0
+    incar_elph["ELPH_SELFEN_TEMPS"]=10
+    incar.write_file(dir+"/INCAR")
 
 
-for q in range(1,9):
-   dir='q'+str(q)
-   if len(glob.glob(dir+'/total_dos.dat'))!=0: nq=q
-#nq=3
-print(nq)
-dir='q'+str(nq)
-dim=read_yaml(dir)
-dispdirs=['../'+m for m in glob.glob(dir+'/disp*')]
-print(dim)
+    for q in range(1,max_q):
+      dir_ph='q'+str(q)
+      if len(glob.glob(dir_ph+'/total_dos.dat'))!=0: nq=q
+    #nq=2
+    dir_ph='q'+str(nq)
+    print( " I run ELPH for phonons from ",dir_ph)
+    dim=read_yaml(dir_ph)
+    dispdirs=['../'+m for m in glob.glob(dir+'/disp*')]
+    print(' supercell size=',dim,'data will be read from ',dispdirs)
 #os.system('cp '+dir+'/phonopy_disp.yaml ELPH/phelel_disp.yaml')
-phelel='cd ELPH; /fs/home/sylwia/src/miniconda3/bin/phelel -d --dim '+''.join([str(m) for m in dim])+' --amplitude 0.01; rm POSCAR*-*'
-os.system(phelel)
-phelel='cd ELPH;/fs/home/sylwia/src/miniconda3/bin/phelel -c POSCAR --dim '+''.join([str(m) for m in dim])+' --create-derivatives ../'+dir+'/PERFECT '+' '.join(dispdirs)+' --fft-mesh '+' '.join(fftmesh)
-print(phelel)
-os.system(phelel)
-run_vasp('./ELPH/',24)
-read_a2f('./ELPH/')
-allen_dynes_tc([0.1,0.13])
+    phelel='cd '+dir+'; /fs/home/sylwia/src/miniconda3/bin/phelel -d --dim '+''.join([str(m) for m in dim])+' --amplitude 0.01; rm POSCAR*-*'
+    os.system(phelel)
+    phelel='cd '+dir+';/fs/home/sylwia/src/miniconda3/bin/phelel -c POSCAR --dim '+''.join([str(m) for m in dim])+' --create-derivatives ../'+dir+'/PERFECT '+' '.join(dispdirs)+' --fft-mesh '+' '.join(fftmesh)
+    print(phelel)
+    os.system(phelel)
+    run_vasp('./ELPH/',24)
+    read_a2f('./ELPH/')
+    allen_dynes_tc([0.1,0.13])
