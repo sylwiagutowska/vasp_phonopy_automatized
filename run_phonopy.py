@@ -102,7 +102,7 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
       phonon.set_forces(forces)
       phonon.produce_force_constants()
       phonon.symmetrize_force_constants(level=1) #level :    Application of translational and permulation symmetries is repeated by this number. Default is 1.
-      print(" I calculate DOS now...")
+      print(" Forces finished. I calculate DOS now...")
    #   phonon.run_mesh([40, 40, 40],with_eigenvectors=True,is_mesh_symmetry=False) 
    #   phonon.run_total_dos(freq_min=-2.,freq_max=20.-0.005,freq_pitch=0.05)
       phonon.auto_total_dos(mesh=40,is_mesh_symmetry=False,plot=False,write_dat=True,filename=dir+"/total_dos.dat")
@@ -158,10 +158,7 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
         phonon.write_total_DOS(filename=dir+"/total_dos.dat")
         print('DOS  calculated')
         phonon.run_projected_dos(freq_pitch=0.01)
-        plot=phonon.plot_band_structure_and_dos()
-        tick_positions, tick_labels = plot.get_ticks()
-        tick_positions = [round(pos, 2) for pos in tick_positions]
-        plot.plot(ticks=[tick_positions, tick_labels])
+        plot=phonon.plot_band_structure_and_dos() 
         plot.savefig("phonon_bands_and_dos.png", dpi=600, bbox_inches='tight')
         phonon.save(filename=dir+"/phonopy_params.yaml",settings={'force_constants': True})
         print('Data saved. PHONONS FINISHED')
