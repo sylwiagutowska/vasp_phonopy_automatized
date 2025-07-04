@@ -91,7 +91,7 @@ def save_dos(dir='dos'):
   vasprun = Vasprun(dir+"/vasprun.xml")
   dos = vasprun.complete_dos  # Or vasprun.tdos for total DOS only
   energies = dos.energies - vasprun.efermi  # Align with Fermi level
-  print(dos.densities.keys())
+  #print(dos.densities.keys())
   total_dos = dos.densities[Spin.up]        
   if Spin.down in dos.densities:
     total_dos += dos.densities[Spin.down]
@@ -107,15 +107,15 @@ def save_pdos(dir='dos'):
   # Initialize data: first column is energy
   data = [energies]
   headers = ["Energy"]
-  print("PDOS available for sites:", list(cdos.pdos.keys()))
+  my_print("PDOS available for sites:", list(cdos.pdos.keys()),1)
   # Loop over all atoms and orbitals
   # Iteruj po atomach, dla których mamy PDOS
   for site, spin_orb_dict in cdos.pdos.items():
-    print(f"Atom {site.specie} at {site.frac_coords}")
+    my_print(f"Atom {site.specie} at {site.frac_coords}",2)
 
     for spin in spin_orb_dict:
         for orb, dos in spin_orb_dict[spin].items():
-            print(f"  Orbital {orb.name}, Spin: {spin.name},  DOS(EF): {dos[efermi_index]:.3f}")
+            my_print(f"  Orbital {orb.name}, Spin: {spin.name},  DOS(EF): {dos[efermi_index]:.3f}",2)
             data.append(dos)
             headers.append(f"{site.specie}_{orb.name}") 
   # Transpose data to get one row per energy point
@@ -143,6 +143,7 @@ def plot_bands_dos(bands_vasprun_path='bands', dos_vasprun_path='dos', output="b
 
 
 def scf_bands_dos(structure,incar,kpoints):
+    my_print('SCF, BAND and DOS STARTED',0)
     # SCF run
     dir='SCF'
     os.system('mkdir '+dir)
@@ -171,6 +172,7 @@ def scf_bands_dos(structure,incar,kpoints):
     run_vasp(dird)
     save_dos(dird)
     save_pdos(dird)
+    my_print('SCF, BAND and DOS finished',0)
 
     
  

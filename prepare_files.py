@@ -45,18 +45,21 @@ def prepare_incar(structure,para):
 
 
 def download_poscar(formula,name=''):
+ my_print('PREPARING THE POSCAR',0)
  with MPRester("rsnyxATXEleWPypUdNDxszAd2BiKhqVu") as mpr:
   docs = mpr.summary.search(formula = formula)
  # print(docs.material_id)
   if len(docs)==0: return -1,-1
   no=np.argsort([i.energy_above_hull for i in docs])[0]
   structure = docs[no].structure
-  print('energy_above_hull',docs[no].energy_above_hull)
+  my_print('energy_above_hull',docs[no].energy_above_hull,1)
   print(structure)
   structure.to(fmt='poscar', filename='POSCAR'+name)
+  my_print('POSCAR PREPARED',0)
   return structure,docs[no].energy_above_hull
  
 def prepare_potcar_incar(formula,structure,energy_above_hull):
+ my_print('PREPARING POTCAR AND INCAR',0)
  #read poscar
  structure_file = os.path.join("POSCAR")
  structure = Structure.from_file(structure_file)
@@ -69,18 +72,19 @@ def prepare_potcar_incar(formula,structure,energy_above_hull):
   fil,en=choose_potcar(i)
   os.system('cat '+fil+' >> '+potcar_file)
   enmaxs.append(en)
-  print(f"chosen potcar {fil}")
+  my_print(f"chosen potcar {fil}",1)
  encut=np.ceil(np.min(enmaxs))
  potcar = Potcar.from_file(potcar_file)
 
+ my_print(f"chosen ENCUT {encut}",1) 
  #prepare incar
  dic={"ENCUT": encut }
  if np.any([site.specie.Z>73 for site in structure.sites]):  #higher than Ta
-  print(len(structure.sites))
-  print('heave element detected, i add spin-orbit coupling')
+  my_print('heave element (Z>73) detected, i add spin-orbit coupling',1)
   dic["LSORBIT"]= ".TRUE."; dic["LNONCOLLINEAR"]= ".TRUE."; dic["SAXIS"]=[0, 0, 1]
   dic["MAGMOM"]=(int(len(structure.sites)))*"0 "
  incar=prepare_incar(structure,dic)
+ my_print('FILES PREPARTED',0)
  
   
  #os.system('mv {POSCAR,POTCAR,INCAR} '+formula+'/.')

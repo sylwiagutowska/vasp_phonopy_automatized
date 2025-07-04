@@ -50,16 +50,16 @@ def allen_dynes_tc(mus):
  omlog=np.exp(2./l*a)
  for mu in mus:
   tc=omlog/1.2*np.exp(-1.04*(1+l)/(l-mu*(1+0.62*l))) # rownowazne wyrazeniu z ph$
-  print('for mu*='+str(mu)+': lambda='+str(l)+' Tc='+str(tc)+' omlog='+str(omlog))
+  my_print('for mu*='+str(mu)+': lambda='+str(l)+' Tc='+str(tc)+' omlog='+str(omlog),2)
 
  
 
 
 def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
-    print('################ELPH CALC#############')
+    my_print('ELPH CALC STARTED',0)
     fftmesh=read_fftmesh('relax')
-    print(fftmesh)
-    print(' Preparing kpoints and incar')
+    my_print('fft mesh',fftmesh,1)
+    my_print('Preparing kpoints and incar',1)
 
     dir='ELPH'
     os.system('mkdir '+dir)
@@ -81,16 +81,17 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
       if len(glob.glob(dir_ph+'/total_dos.dat'))!=0: nq=q
     #nq=2
     dir_ph='q'+str(nq)
-    print( " I run ELPH for phonons from ",dir_ph)
+    my_print( "I run ELPH for phonons from ",dir_ph,1)
     dim=read_yaml(dir_ph)
     dispdirs=['../'+m for m in glob.glob(dir+'/disp*')]
-    print(' supercell size=',dim,'data will be read from ',dispdirs)
+    my_print('supercell size=',dim,'. Data will be read from ',dispdirs,1)
 #os.system('cp '+dir+'/phonopy_disp.yaml ELPH/phelel_disp.yaml')
     phelel='cd '+dir+'; /fs/home/sylwia/src/miniconda3/bin/phelel -d --dim '+''.join([str(m) for m in dim])+' --amplitude 0.01; rm POSCAR*-*'
     os.system(phelel)
     phelel='cd '+dir+';/fs/home/sylwia/src/miniconda3/bin/phelel -c POSCAR --dim '+''.join([str(m) for m in dim])+' --create-derivatives ../'+dir+'/PERFECT '+' '.join(dispdirs)+' --fft-mesh '+' '.join(fftmesh)
-    print(phelel)
+    my_print(phelel,1)
     os.system(phelel)
     run_vasp('./ELPH/',24)
     read_a2f('./ELPH/')
     allen_dynes_tc([0.1,0.13])
+    my_print("ELPH CALC FINISHED",0)

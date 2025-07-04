@@ -18,6 +18,7 @@ def get_nkpts(dir):
 
 
 def kpar_convergence(incar, kpoints,  npr):
+    my_print('CHOICE OF KPAR STARTED',0)
     best_kpar = None
     best_time = float("inf")
 
@@ -33,11 +34,11 @@ def kpar_convergence(incar, kpoints,  npr):
         incar["ISTART"]=0
         incar.write_file(dir+"/INCAR")
 
-        print(f"Running with KPAR = {kpar}")
+        my_print(f"Running with KPAR = {kpar}",1)
         run_vasp(dir)
         runtime = get_runtime(dir)
 
-        print(f" Runtime = {runtime} sec")
+        my_print(f"Runtime = {runtime} sec",2)
 
         if kpar==1: nkpts=get_nkpts(dir)
 
@@ -47,11 +48,12 @@ def kpar_convergence(incar, kpoints,  npr):
             best_time = runtime
             best_kpar = kpar
 
-    print(f" Optimal KPAR = {best_kpar} with runtime = {best_time} sec")
+    my_print(f"Optimal KPAR = {best_kpar} with runtime = {best_time} sec",1)
     incar["KPAR"] = best_kpar
     incar["ISTART"]=1
     incar.write_file("INCAR")
     clean_vasp_files(dir)
+    my_print('CHOICE OF KPAR FINISHED',0)
 
 
  

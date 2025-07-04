@@ -10,7 +10,7 @@ def relax_status(dir):
 
 
 def relaxx(incar,kpoints):
- print('relax starts')
+ my_print('RELAX STARTED',0)
  dir='relax'
  os.system('mkdir '+dir)
  incar_relax=incar.copy()
@@ -31,7 +31,7 @@ def relaxx(incar,kpoints):
   os.system("cp {dir}/CONTCAR {dir} POSCAR")
   os.system(f"mv {dir}/OUTCAR {dir}/OUTCAR.{m}")
  os.system(f"mv POSCAR POSCAR_init; cp {dir}/CONTCAR POSCAR")
- print('relax ends')
+ my_print('RELAX FINISHED',0)
 
 
 
