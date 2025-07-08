@@ -6,7 +6,7 @@ from pymatgen.io.vasp.outputs import Outcar
 from pymatgen.core import Structure
 import sys
 
-def my_print(args):
+def my_print(*args):
    level=args[-1]
    if len(args)==2: txt=args[0]
    else: txt=' '.join([str(m) for m in args[:-1]]) 
