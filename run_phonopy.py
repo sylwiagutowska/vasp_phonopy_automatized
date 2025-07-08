@@ -60,11 +60,11 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
       kpointsq=Kpoints.monkhorst_automatic(kp)
       kpointsq.write_file(dir+"/KPOINTS")
       #phonopy
-      qs=(np.round(q*kpold/kpold[0]).astype(int))
-      my_print('supercell size',qs,'kpoints size',kp,2)
+      dim=(np.round(q*kpold/kpold[0]).astype(int))
+      my_print('supercell size',dim,'kpoints size',kp,2)
       unitcell, _ = read_crystal_structure("POSCAR")
-      my_print('Ready for phononpy with supercell of dim',qs,2)
-      phonon = Phonopy(unitcell,  supercell_matrix=[[qs[0], 0, 0], [0, qs[1], 0], [0, 0, qs[2]]], factor=VaspToTHz)
+      my_print('Ready for phononpy with supercell of dim',dim,2)
+      phonon = Phonopy(unitcell,  supercell_matrix=[[dim[0], 0, 0], [0, dim[1], 0], [0, 0, dim[2]]], factor=VaspToTHz)
       phonon.generate_displacements(distance=0.01)
       supercells = phonon.supercells_with_displacements 
       incar_phonopy=incar.copy()
@@ -131,15 +131,19 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
       primitive_matrix=structure.lattice.matrix 
       sc_len=len(force_constants)//len(atoms) 
       force_constants2=np.abs(np.array([[np.matmul(np.linalg.inv(primitive_matrix),np.matmul(m, primitive_matrix )) for m in i] for i in force_constants]))
-      primitive_to_supercell_map=[[m for m in range(i,i+sc_len)] for i in phonon._primitive._p2s_map]
+      primitive_to_supercell_map=np.array([[m for m in range(i,i+sc_len)] for i in phonon._primitive._p2s_map])
       my_print( 'Map atoms from primitive to supercell',phonon._primitive._p2s_map,'reshaped to',primitive_to_supercell_map,2) 
       if_forces_reduced_enough=np.zeros((len(atoms),len(atoms),3))
       my_print('Force constants analysis',2)
-      for nato1,ato1 in enumerate(primitive_to_supercell_map):
-        for nato2,ato2 in enumerate(primitive_to_supercell_map):
+      for nato1,ato1 in enumerate(primitive_to_supercell_map): #over atoms in primitive cell. ato1 is a list of atoms equivalent to given atom in primitive cell
+        for nato2,ato2 in enumerate(primitive_to_supercell_map): #over elements
             my_print(atoms[nato1],atoms[nato2],':',2)
             for ndire,dire in enumerate(['x','y','z']):
-               maxf,minf=np.max(force_constants2[ato1[0],ato2,ndire,ndire]),np.min(force_constants2[ato1[0],ato2,ndire,ndire])
+               if ndire==0: select_atoms=[ato2[0]+m for m in range(dim[0])]
+               elif ndire==1: select_atoms=[ato2[0]+m*dim[0] for m in range(dim[1])]
+               elif ndire==2: select_atoms=[ato2[0]+m*dim[1]*dim[2] for m in range(dim[2])]
+               my_print('atoms in the direction',dire,':',select_atoms,2)
+               maxf,minf=np.max(force_constants2[ato1[0],ato2[select_atoms],ndire,ndire]),np.min(force_constants2[ato1[0],ato2[select_atoms],ndire,ndire])
                my_print(dire,':','max force constant: ',maxf,'min force constant:',minf,3)
                if maxf>minf*900: if_forces_reduced_enough[nato1,nato2,ndire]=1
             for ncell1,cell1 in enumerate(ato1):
@@ -154,7 +158,7 @@ def run_phonopy(structure, incar, kpoints, kpar=1,max_q=8):
       if np.all(if_forces_reduced_enough) or q==max_q:
         phonon.auto_band_structure(with_eigenvectors=True,write_yaml=True,plot=False)
         my_print('Band structure calculated',1)
-        phonon.run_mesh([int(100)/sc_size for sc_size in qs],with_eigenvectors=True,is_mesh_symmetry=False) 
+        phonon.run_mesh([int(100)/sc_size for sc_size in dim],with_eigenvectors=True,is_mesh_symmetry=False) 
         phonon.run_total_dos(freq_pitch=0.01)
         phonon.write_total_DOS(filename=dir+"/total_dos.dat")
         my_print('DOS  calculated',1)
